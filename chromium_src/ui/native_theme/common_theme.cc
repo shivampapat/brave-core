@@ -11,6 +11,7 @@
 
 namespace ui {
 
+#if 0
 SkColor GetAuraColor(NativeTheme::ColorId color_id,
                     const NativeTheme* base_theme,
                     NativeTheme::ColorScheme color_scheme) {
@@ -27,6 +28,7 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
   }
   return GetAuraColor_ChromiumImpl(color_id, base_theme, color_scheme);
 }
+#endif
 
 }  // namespace ui
 
