@@ -471,8 +471,8 @@ void BraveWalletProviderImpl::ContinueSignMessage(
     return;
   }
 
-  auto request =
-      mojom::SignMessageRequest::New(sign_message_id_++, address, message);
+  auto request = mojom::SignMessageRequest::New(sign_message_id_++, address,
+                                                message, is_eip712);
   if (keyring_service_->IsHardwareAccount(address)) {
     brave_wallet_service_->AddSignMessageRequest(
         std::move(request),

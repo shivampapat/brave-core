@@ -40,7 +40,8 @@ const defaultState: PanelState = {
   signMessageData: [{
     id: -1,
     address: '',
-    message: ''
+    message: '',
+    isEip712: false
   }],
   switchChainRequest: {
     origin: {

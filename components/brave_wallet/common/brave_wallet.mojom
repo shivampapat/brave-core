@@ -783,6 +783,7 @@ struct SignMessageRequest {
   int32 id;
   string address;
   string message;
+  bool is_eip712;
 };
 
 enum ExternalWalletType {

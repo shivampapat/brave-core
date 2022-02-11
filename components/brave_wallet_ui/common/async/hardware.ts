@@ -103,10 +103,10 @@ export async function signLedgerTransaction (
   return { success: result.status }
 }
 
-export async function signMessageWithHardwareKeyring (vendor: HardwareVendor, path: string, message: string): Promise<SignHardwareMessageOperationResult> {
+export async function signMessageWithHardwareKeyring (vendor: HardwareVendor, path: string, message: string, isEip712: boolean): Promise<SignHardwareMessageOperationResult> {
   const deviceKeyring = getHardwareKeyring(vendor)
   if (deviceKeyring instanceof LedgerBridgeKeyring) {
-    return deviceKeyring.signPersonalMessage(path, message)
+    return deviceKeyring.signPersonalMessage(path, message, isEip712)
   } else if (deviceKeyring instanceof TrezorBridgeKeyring) {
     return deviceKeyring.signPersonalMessage(path, message)
   }

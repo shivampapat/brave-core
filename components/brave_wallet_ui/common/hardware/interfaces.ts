@@ -29,6 +29,7 @@ export abstract class LedgerEthereumKeyring extends HardwareKeyring {
   abstract getAccounts (from: number, to: number, scheme: string): Promise<GetAccountsHardwareOperationResult>
   abstract signPersonalMessage (path: string, address: string, message: string): Promise<SignHardwareMessageOperationResult>
   abstract signTransaction (path: string, rawTxHex: string): Promise<SignHardwareTransactionOperationResult>
+  abstract signEip712Message (path: string, address: string, message: string): Promise<SignHardwareMessageOperationResult>
 }
 
 export abstract class LedgerFilecoinKeyring extends HardwareKeyring {
