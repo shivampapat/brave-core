@@ -29,11 +29,12 @@ class BraveWalletProviderDelegate;
 class BraveWalletService;
 class JsonRpcService;
 class KeyringService;
+class TxServiceManager;
 
 class BraveWalletProviderImpl final
     : public mojom::BraveWalletProvider,
       public mojom::JsonRpcServiceObserver,
-      public mojom::EthTxServiceObserver,
+      public mojom::TxServiceManagerObserver,
       public brave_wallet::mojom::KeyringServiceObserver,
       public content_settings::Observer {
  public:
@@ -41,7 +42,7 @@ class BraveWalletProviderImpl final
   BraveWalletProviderImpl& operator=(const BraveWalletProviderImpl&) = delete;
   BraveWalletProviderImpl(HostContentSettingsMap* host_content_settings_map,
                           JsonRpcService* json_rpc_service,
-                          mojo::PendingRemote<mojom::EthTxService> tx_service,
+                          TxServiceManager* tx_service_manager,
                           KeyringService* keyring_service,
                           BraveWalletService* brave_wallet_service,
                           std::unique_ptr<BraveWalletProviderDelegate> delegate,
@@ -117,7 +118,7 @@ class BraveWalletProviderImpl final
                                              const std::string& chain_id,
                                              const GURL& origin);
 
-  // mojom::EthTxServiceObserver
+  // mojom::TxServiceManagerObserver
   void OnNewUnapprovedTx(mojom::TransactionInfoPtr tx_info) override {}
   void OnUnapprovedTxUpdated(mojom::TransactionInfoPtr tx_info) override {}
   void OnTransactionStatusChanged(mojom::TransactionInfoPtr tx_info) override;
@@ -217,7 +218,7 @@ class BraveWalletProviderImpl final
   std::unique_ptr<BraveWalletProviderDelegate> delegate_;
   mojo::Remote<mojom::EventsListener> events_listener_;
   raw_ptr<JsonRpcService> json_rpc_service_ = nullptr;
-  mojo::Remote<mojom::EthTxService> tx_service_;
+  raw_ptr<TxServiceManager> tx_service_manager_ = nullptr;
   raw_ptr<KeyringService> keyring_service_ = nullptr;
   raw_ptr<BraveWalletService> brave_wallet_service_ = nullptr;
   base::flat_map<std::string, AddEthereumChainCallback> chain_callbacks_;
@@ -226,7 +227,7 @@ class BraveWalletProviderImpl final
   RequestEthereumPermissionsCallback
       pending_request_ethereum_permissions_callback_;
   mojo::Receiver<mojom::JsonRpcServiceObserver> rpc_observer_receiver_{this};
-  mojo::Receiver<mojom::EthTxServiceObserver> tx_observer_receiver_{this};
+  mojo::Receiver<mojom::TxServiceManagerObserver> tx_observer_receiver_{this};
   mojo::Receiver<brave_wallet::mojom::KeyringServiceObserver>
       keyring_observer_receiver_{this};
   std::vector<std::string> known_allowed_accounts;
