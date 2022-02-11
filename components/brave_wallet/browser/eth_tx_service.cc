@@ -23,6 +23,7 @@
 #include "brave/components/brave_wallet/browser/eth_gas_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/keyring_service.h"
+#include "brave/components/brave_wallet/browser/tx_service_manager.h"
 #include "brave/components/brave_wallet/common/eth_address.h"
 #include "brave/components/brave_wallet/common/hex_utils.h"
 #include "components/grit/brave_components_strings.h"
@@ -105,23 +106,21 @@ bool EthTxService::ValidateTxData1559(const mojom::TxData1559Ptr& tx_data,
   return true;
 }
 
-EthTxService::EthTxService(
-    JsonRpcService* json_rpc_service,
-    KeyringService* keyring_service,
-    std::unique_ptr<EthTxStateManager> tx_state_manager,
-    std::unique_ptr<EthNonceTracker> nonce_tracker,
-    std::unique_ptr<EthPendingTxTracker> pending_tx_tracker,
-    PrefService* prefs)
-    : json_rpc_service_(json_rpc_service),
-      keyring_service_(keyring_service),
-      prefs_(prefs),
-      tx_state_manager_(std::move(tx_state_manager)),
-      nonce_tracker_(std::move(nonce_tracker)),
-      pending_tx_tracker_(std::move(pending_tx_tracker)),
+EthTxService::EthTxService(TxServiceManager* tx_service_manager,
+                           JsonRpcService* json_rpc_service,
+                           KeyringService* keyring_service,
+                           PrefService* prefs)
+    : TxService(tx_service_manager, json_rpc_service, keyring_service, prefs),
+      tx_state_manager_(
+          std::make_unique<EthTxStateManager>(prefs, json_rpc_service)),
+      nonce_tracker_(std::make_unique<EthNonceTracker>(tx_state_manager_.get(),
+                                                       json_rpc_service)),
+      pending_tx_tracker_(
+          std::make_unique<EthPendingTxTracker>(tx_state_manager_.get(),
+                                                json_rpc_service,
+                                                nonce_tracker_.get())),
       eth_block_tracker_(std::make_unique<EthBlockTracker>(json_rpc_service)),
       weak_factory_(this) {
-  DCHECK(json_rpc_service_);
-  DCHECK(keyring_service_);
   CheckIfBlockTrackerShouldRun();
   eth_block_tracker_->AddObserver(this);
   tx_state_manager_->AddObserver(this);
@@ -134,14 +133,20 @@ EthTxService::~EthTxService() {
   tx_state_manager_->RemoveObserver(this);
 }
 
-mojo::PendingRemote<mojom::EthTxService> EthTxService::MakeRemote() {
-  mojo::PendingRemote<mojom::EthTxService> remote;
-  receivers_.Add(this, remote.InitWithNewPipeAndPassReceiver());
-  return remote;
-}
-
-void EthTxService::Bind(mojo::PendingReceiver<mojom::EthTxService> receiver) {
-  receivers_.Add(this, std::move(receiver));
+void EthTxService::AddUnapprovedTransaction(
+    mojom::TxDataUnionPtr tx_data_union,
+    const std::string& from,
+    AddUnapprovedTransactionCallback callback) {
+  DCHECK(tx_data_union->is_eth_tx_data() ||
+         tx_data_union->is_eth_tx_data_1559());
+  if (tx_data_union->is_eth_tx_data()) {
+    AddUnapprovedTransaction(std::move(tx_data_union->get_eth_tx_data()), from,
+                             std::move(callback));
+  } else {
+    AddUnapproved1559Transaction(
+        std::move(tx_data_union->get_eth_tx_data_1559()), from,
+        std::move(callback));
+  }
 }
 
 void EthTxService::AddUnapprovedTransaction(
@@ -271,7 +276,7 @@ void EthTxService::ContinueAddUnapprovedTransaction(
 void EthTxService::AddUnapproved1559Transaction(
     mojom::TxData1559Ptr tx_data,
     const std::string& from,
-    AddUnapproved1559TransactionCallback callback) {
+    AddUnapprovedTransactionCallback callback) {
   if (from.empty()) {
     std::move(callback).Run(
         false, "",
@@ -657,26 +662,18 @@ void EthTxService::ContinueMakeERC721TransferFromData(
   std::move(callback).Run(true, data_decoded);
 }
 
-void EthTxService::AddObserver(
-    ::mojo::PendingRemote<mojom::EthTxServiceObserver> observer) {
-  observers_.Add(std::move(observer));
-}
-
 void EthTxService::OnTransactionStatusChanged(
     mojom::TransactionInfoPtr tx_info) {
-  for (const auto& observer : observers_)
-    observer->OnTransactionStatusChanged(tx_info->Clone());
+  tx_service_manager_->OnTransactionStatusChanged(tx_info->Clone());
 }
 
 void EthTxService::OnNewUnapprovedTx(mojom::TransactionInfoPtr tx_info) {
-  for (const auto& observer : observers_)
-    observer->OnNewUnapprovedTx(tx_info->Clone());
+  tx_service_manager_->OnNewUnapprovedTx(tx_info->Clone());
 }
 
 void EthTxService::NotifyUnapprovedTxUpdated(EthTxStateManager::TxMeta* meta) {
-  for (const auto& observer : observers_)
-    observer->OnUnapprovedTxUpdated(
-        EthTxStateManager::TxMetaToTransactionInfo(*meta));
+  tx_service_manager_->OnUnapprovedTxUpdated(
+      EthTxStateManager::TxMetaToTransactionInfo(*meta));
 }
 
 void EthTxService::GetAllTransactionInfo(
@@ -1085,7 +1082,6 @@ void EthTxService::OnGetGasEstimation1559(
 }
 
 void EthTxService::Reset() {
-  ClearEthTxServiceProfilePrefs(prefs_);
   eth_block_tracker_->Stop();
   pending_tx_tracker_->Reset();
   known_no_pending_tx = false;
