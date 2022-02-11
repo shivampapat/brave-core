@@ -55,6 +55,7 @@ bool DeAmpService::IsEnabled() {
   return enabled;
 }
 
+// static
 bool DeAmpService::VerifyCanonicalLink(const GURL canonical_link,
                                        const GURL original_url) {
   // Canonical URL should be a valid URL,
@@ -65,7 +66,8 @@ bool DeAmpService::VerifyCanonicalLink(const GURL canonical_link,
 
 // If AMP page, find canonical link
 // canonical link param is populated if found
-bool DeAmpService::FindCanonicalLinkIfAMP(const std::string body,
+// static
+bool DeAmpService::FindCanonicalLinkIfAMP(const std::string& body,
                                           std::string* canonical_link) {
   RE2::Options opt;
   opt.set_case_sensitive(false);
@@ -82,7 +84,7 @@ bool DeAmpService::FindCanonicalLinkIfAMP(const std::string body,
 
   std::string html_tag;
   if (!RE2::PartialMatch(body, *kGetHtmlTagRegex, &html_tag)) {
-    // Early exit if we can't find HTML tag -- malformed document (or error)
+    // Early exit if we can't find HTML tag - malformed document (or error)
     return false;
   }
   if (!RE2::PartialMatch(html_tag, *kDetectAmpRegex)) {

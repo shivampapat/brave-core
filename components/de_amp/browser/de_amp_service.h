@@ -27,7 +27,7 @@ class DeAmpService : public KeyedService {
   void ToggleDeAmp();
   void DisableDeAmpForTest();
   bool IsEnabled();
-  static bool FindCanonicalLinkIfAMP(const std::string body,
+  static bool FindCanonicalLinkIfAMP(const std::string& body,
                                      std::string* canonical_link);
   static bool VerifyCanonicalLink(const GURL canonical_link,
                                   const GURL original_url);
