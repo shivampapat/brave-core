@@ -56,7 +56,7 @@ bool DeAmpService::IsEnabled() {
 }
 
 bool DeAmpService::VerifyCanonicalLink(const GURL canonical_link,
-                                      const GURL original_url) {
+                                       const GURL original_url) {
   // Canonical URL should be a valid URL,
   // be HTTP(S) and not be the same as original URL
   return canonical_link.is_valid() && canonical_link.SchemeIsHTTPOrHTTPS() &&
@@ -69,8 +69,8 @@ bool DeAmpService::FindCanonicalLinkIfAMP(const std::string body,
                                           std::string* canonical_link) {
   RE2::Options opt;
   opt.set_case_sensitive(false);
-  // The order of running these regexes is important - we first get the relevant tag
-  // and then find the info. 
+  // The order of running these regexes is important:
+  // we first get the relevant HTML tag and then find the info.
   static const base::NoDestructor<re2::RE2> kGetHtmlTagRegex(kGetHtmlTagPattern,
                                                              opt);
   static const base::NoDestructor<re2::RE2> kDetectAmpRegex(kDetectAmpPattern,
