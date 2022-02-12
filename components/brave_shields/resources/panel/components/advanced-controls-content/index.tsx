@@ -5,6 +5,7 @@ import Toggle from '../../../../../web-components/toggle'
 import { getLocale } from '../../../../../common/locale'
 import getPanelBrowserAPI, { AdBlockMode, CookieBlockMode, FingerprintMode } from '../../api/panel_browser_api'
 import DataContext from '../../state/context'
+import { ViewType } from '../../state/component_types'
 
 const adBlockModeOptions = [
   { value: AdBlockMode.AGGRESSIVE, text: getLocale('braveShieldsTrackersAndAdsBlockedAgg') },
@@ -53,7 +54,7 @@ function GlobalSettings () {
 }
 
 function AdvancedControlsContent () {
-  const { siteBlockInfo, siteSettings, getSiteSettings } = React.useContext(DataContext)
+  const { siteBlockInfo, siteSettings, getSiteSettings, setViewType } = React.useContext(DataContext)
 
   const handleAdBlockModeChange = (e: React.FormEvent<HTMLSelectElement>) => {
     const target = e.target as HTMLSelectElement
@@ -135,6 +136,7 @@ function AdvancedControlsContent () {
           <S.ControlCount
             aria-label={getLocale('braveShieldsScriptsBlocked')}
             aria-expanded='false'
+            onClick={() => setViewType?.(ViewType.ResourceList)}
           >
             <S.CaratDown />
             <span>{siteBlockInfo?.jsList.length}</span>

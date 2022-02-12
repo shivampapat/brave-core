@@ -19,6 +19,7 @@
 using brave_shields::mojom::AdBlockMode;
 using brave_shields::mojom::CookieBlockMode;
 using brave_shields::mojom::FingerprintMode;
+using brave_shields::mojom::NoScriptInfoPtr;
 using content::NavigationEntry;
 
 namespace brave_shields {
@@ -44,7 +45,7 @@ class BraveShieldsDataController
   int GetTotalBlockedCount();
   std::vector<GURL> GetBlockedAdsList();
   std::vector<GURL> GetHttpRedirectsList();
-  std::vector<GURL> GetJsList();
+  std::vector<NoScriptInfoPtr> GetJsList();
   std::vector<GURL> GetFingerprintsList();
   bool GetBraveShieldsEnabled();
   GURL GetCurrentSiteURL();

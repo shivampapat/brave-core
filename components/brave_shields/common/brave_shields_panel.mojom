@@ -47,8 +47,14 @@ struct SiteBlockInfo {
   bool is_shields_enabled;
   array<url.mojom.Url> ads_list;
   array<url.mojom.Url> http_redirects_list;
-  array<url.mojom.Url> js_list;
+  array<NoScriptInfo> js_list;
   array<url.mojom.Url> fingerprints_list;
+};
+
+struct NoScriptInfo {
+  string host;
+  bool is_temporarily_allowed;
+  array<string> resource_list;
 };
 
 struct SiteSettings {

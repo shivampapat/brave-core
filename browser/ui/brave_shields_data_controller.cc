@@ -8,6 +8,7 @@
 
 #include <string>
 
+#include "base/ranges/algorithm.h"
 #include "brave/components/brave_shields/browser/brave_shields_util.h"
 #include "brave/components/brave_shields/common/brave_shield_constants.h"
 #include "chrome/browser/browser_process.h"
@@ -78,9 +79,27 @@ std::vector<GURL> BraveShieldsDataController::GetHttpRedirectsList() {
   return http_redirects;
 }
 
-std::vector<GURL> BraveShieldsDataController::GetJsList() {
-  std::vector<GURL> js_list(resource_list_blocked_js_.begin(),
-                            resource_list_blocked_js_.end());
+std::vector<NoScriptInfoPtr> BraveShieldsDataController::GetJsList() {
+  std::vector<NoScriptInfoPtr> js_list;
+  for (auto &url : resource_list_blocked_js_) {
+    // Find if host exists inside js_list
+    auto find_info = base::ranges::find_if(js_list,
+    [&url](const NoScriptInfoPtr& entry){
+      return entry->host == url.host();
+    });
+
+    // If the host exists then add the current url to resources list
+    if (find_info != js_list.end()) {
+      find_info->get()->resource_list.push_back(url.spec());
+      continue;
+    }
+
+    // Create an info struct for a new host
+    NoScriptInfoPtr info = brave_shields::mojom::NoScriptInfo::New();
+    info->host = url.host();
+    info->is_temporarily_allowed = false;
+    js_list.push_back(info.Clone());
+  }
 
   return js_list;
 }

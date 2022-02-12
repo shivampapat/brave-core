@@ -10,4 +10,5 @@ export const PanelFrame = styled.div`
   width: 340px;
   height: auto;
   overflow: hidden;
+  position: relative;
 `
