@@ -94,14 +94,16 @@ const getMockedProxyServices = (
         return '0x123'
       }
     },
-    ethTxService: {
-      getNonceForHardwareTransaction: (id: string): GetNonceForHardwareTransactionReturnInfo | undefined => {
-        expect(id).toStrictEqual(expectedId)
-        return nonce
-      },
+    txServiceManager: {
       getTransactionMessageToSign: (id: string): GetTransactionMessageToSignReturnInfo | undefined => {
         expect(id).toStrictEqual(expectedId)
         return messageToSign
+      }
+    },
+    ethTxServiceProxy: {
+      getNonceForHardwareTransaction: (id: string): GetNonceForHardwareTransactionReturnInfo | undefined => {
+        expect(id).toStrictEqual(expectedId)
+        return nonce
       },
       processHardwareSignature: (id: string, v: string, r: string, s: string): ProcessHardwareSignatureReturnInfo | undefined => {
         expect(id).toStrictEqual(expectedId)
