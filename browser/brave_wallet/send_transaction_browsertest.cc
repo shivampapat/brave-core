@@ -12,16 +12,16 @@
 #include "base/test/scoped_feature_list.h"
 #include "brave/browser/brave_wallet/brave_wallet_service_factory.h"
 #include "brave/browser/brave_wallet/brave_wallet_tab_helper.h"
-#include "brave/browser/brave_wallet/eth_tx_service_factory.h"
 #include "brave/browser/brave_wallet/json_rpc_service_factory.h"
 #include "brave/browser/brave_wallet/keyring_service_factory.h"
+#include "brave/browser/brave_wallet/tx_service_manager_factory.h"
 #include "brave/common/brave_paths.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_service.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
-#include "brave/components/brave_wallet/browser/eth_tx_service.h"
 #include "brave/components/brave_wallet/browser/ethereum_permission_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/keyring_service.h"
+#include "brave/components/brave_wallet/browser/tx_service_manager.h"
 #include "brave/components/brave_wallet/common/brave_wallet.mojom.h"
 #include "brave/components/brave_wallet/common/features.h"
 #include "brave/components/brave_wallet/common/hex_utils.h"
@@ -65,10 +65,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
 namespace brave_wallet {
 
-class TestEthTxServiceObserver
-    : public brave_wallet::mojom::EthTxServiceObserver {
+class TestTxServiceManagerObserver
+    : public brave_wallet::mojom::TxServiceManagerObserver {
  public:
-  TestEthTxServiceObserver() {}
+  TestTxServiceManagerObserver() {}
 
   void OnNewUnapprovedTx(mojom::TransactionInfoPtr tx) override {
     ASSERT_TRUE(tx->tx_data_union->is_eth_tx_data_1559());
@@ -95,7 +95,8 @@ class TestEthTxServiceObserver
     run_loop_rejected_->Run();
   }
 
-  mojo::PendingRemote<brave_wallet::mojom::EthTxServiceObserver> GetReceiver() {
+  mojo::PendingRemote<brave_wallet::mojom::TxServiceManagerObserver>
+  GetReceiver() {
     return observer_receiver_.BindNewPipeAndPassRemote();
   }
 
@@ -103,8 +104,8 @@ class TestEthTxServiceObserver
   bool expect_eip1559_tx() { return expect_eip1559_tx_; }
 
  private:
-  mojo::Receiver<brave_wallet::mojom::EthTxServiceObserver> observer_receiver_{
-      this};
+  mojo::Receiver<brave_wallet::mojom::TxServiceManagerObserver>
+      observer_receiver_{this};
   std::unique_ptr<base::RunLoop> run_loop_new_unapproved_;
   std::unique_ptr<base::RunLoop> run_loop_rejected_;
   bool expect_eip1559_tx_ = false;
@@ -141,12 +142,12 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
             browser()->profile());
     keyring_service_ =
         KeyringServiceFactory::GetServiceForContext(browser()->profile());
-    eth_tx_service_ =
-        EthTxServiceFactory::GetServiceForContext(browser()->profile());
+    tx_service_manager_ =
+        TxServiceManagerFactory::GetServiceForContext(browser()->profile());
     json_rpc_service_ =
         JsonRpcServiceFactory::GetServiceForContext(browser()->profile());
 
-    eth_tx_service_->AddObserver(observer()->GetReceiver());
+    tx_service_manager_->AddObserver(observer()->GetReceiver());
 
     StartRPCServer(base::BindRepeating(&HandleRequest));
   }
@@ -173,7 +174,7 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
   net::EmbeddedTestServer* https_server_for_rpc() {
     return &https_server_for_rpc_;
   }
-  TestEthTxServiceObserver* observer() { return &observer_; }
+  TestTxServiceManagerObserver* observer() { return &observer_; }
 
   void RestoreWallet() {
     const char mnemonic[] =
@@ -286,8 +287,9 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
 
   void ApproveTransaction(const std::string& tx_meta_id) {
     base::RunLoop run_loop;
-    eth_tx_service_->ApproveTransaction(
-        tx_meta_id, base::BindLambdaForTesting([&](bool success) {
+    tx_service_manager_->ApproveTransaction(
+        mojom::CoinType::ETH, tx_meta_id,
+        base::BindLambdaForTesting([&](bool success) {
           EXPECT_TRUE(success);
           run_loop.Quit();
         }));
@@ -296,8 +298,9 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
 
   void RejectTransaction(const std::string& tx_meta_id) {
     base::RunLoop run_loop;
-    eth_tx_service_->RejectTransaction(
-        tx_meta_id, base::BindLambdaForTesting([&](bool success) {
+    tx_service_manager_->RejectTransaction(
+        mojom::CoinType::ETH, tx_meta_id,
+        base::BindLambdaForTesting([&](bool success) {
           EXPECT_TRUE(success);
           observer()->WaitForRjectedStatus();
           run_loop.Quit();
@@ -423,12 +426,13 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
   std::vector<mojom::TransactionInfoPtr> GetAllTransactionInfo() {
     std::vector<mojom::TransactionInfoPtr> transaction_infos;
     base::RunLoop run_loop;
-    eth_tx_service_->GetAllTransactionInfo(
-        from(), base::BindLambdaForTesting(
-                    [&](std::vector<mojom::TransactionInfoPtr> v) {
-                      transaction_infos = std::move(v);
-                      run_loop.Quit();
-                    }));
+    tx_service_manager_->GetAllTransactionInfo(
+        mojom::CoinType::ETH, from(),
+        base::BindLambdaForTesting(
+            [&](std::vector<mojom::TransactionInfoPtr> v) {
+              transaction_infos = std::move(v);
+              run_loop.Quit();
+            }));
     run_loop.Run();
     return transaction_infos;
   }
@@ -472,12 +476,12 @@ class SendTransactionBrowserTest : public InProcessBrowserTest {
   raw_ptr<BraveWalletService> brave_wallet_service_ = nullptr;
 
  private:
-  TestEthTxServiceObserver observer_;
+  TestTxServiceManagerObserver observer_;
   base::test::ScopedFeatureList scoped_feature_list_;
   net::test_server::EmbeddedTestServer https_server_for_files_;
   net::test_server::EmbeddedTestServer https_server_for_rpc_;
   raw_ptr<KeyringService> keyring_service_ = nullptr;
-  raw_ptr<EthTxService> eth_tx_service_ = nullptr;
+  raw_ptr<TxServiceManager> tx_service_manager_ = nullptr;
   raw_ptr<JsonRpcService> json_rpc_service_ = nullptr;
   std::string chain_id_;
 };
