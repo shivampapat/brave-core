@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/notreached.h"
 #include "base/strings/string_split.h"
 #include "bat/ads/internal/catalog/catalog.h"
 #include "bat/ads/internal/catalog/catalog_campaign_info.h"
@@ -72,7 +73,12 @@ std::string GetParentSegment(const std::string& segment) {
   DCHECK(!segment.empty());
 
   const std::vector<std::string> components = SplitSegment(segment);
-  DCHECK(!components.empty());
+  if (components.empty()) {
+    // TODO(https://github.com/brave/brave-browser/issues/21081): Refactor this
+    // when the causes of empty segments are found.
+    NOTREACHED();
+    return std::string();
+  }
 
   return components.front();
 }
@@ -84,7 +90,12 @@ SegmentList GetParentSegments(const SegmentList& segments) {
     DCHECK(!segment.empty());
 
     const std::string parent_segment = GetParentSegment(segment);
-    DCHECK(!parent_segment.empty());
+    if (parent_segment.empty()) {
+      // TODO(https://github.com/brave/brave-browser/issues/21081): Refactor
+      // this when the causes of empty segments are found.
+      NOTREACHED();
+      continue;
+    }
 
     parent_segments.push_back(parent_segment);
   }
