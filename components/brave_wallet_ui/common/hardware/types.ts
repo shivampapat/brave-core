@@ -77,3 +77,12 @@ export const FilecoinAddressProtocolLocaleMapping = {
   [BraveWallet.FilecoinAddressProtocol.BLS]: 'BLS12-381',
   [BraveWallet.FilecoinAddressProtocol.SECP256K1]: 'secp256k1'
 }
+
+// EIP712 required structure payload
+// https://eips.ethereum.org/EIPS/eip-712
+export type Eip712Structure = {
+  domain: any,
+  types: any,
+  primaryType: string,
+  message: object
+}

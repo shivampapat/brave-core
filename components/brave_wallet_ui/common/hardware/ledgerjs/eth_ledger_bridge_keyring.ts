@@ -15,7 +15,7 @@ import {
   SignatureVRS,
   SignHardwareMessageOperationResult,
   SignHardwareTransactionOperationResult
-, HardwareOperationResult, LedgerDerivationPaths
+, HardwareOperationResult, LedgerDerivationPaths, Eip712Structure
 } from '../types'
 import { LedgerEthereumKeyring } from '../interfaces'
 import { HardwareVendor } from '../../api/hardware_keyrings'
@@ -102,39 +102,74 @@ export default class LedgerBridgeKeyring extends LedgerEthereumKeyring {
       return { success: false, error: e.message, code: e.statusCode || e.id || e.name }
     }
   }
-  signEip712Message = async (path: string, input: string): Promise<SignHardwareMessageOperationResult> => {
+  signEip712Message = async (path: string, input1: string): Promise<SignHardwareMessageOperationResult> => {
     try {
       const unlocked = await this.unlock()
       if (!unlocked.success || !this.app) {
         return unlocked
       }
-      const eth: Eth = this.app
+      const input = {
+        "types":{
+          "EIP712Domain":[
+            {"name":"name","type":"string"},
+            {"name":"version","type":"string"},
+            {"name":"chainId","type":"uint256"},
+            {"name":"verifyingContract","type":"address"}],
+          "Person":[
+            {"name":"name","type":"string"},
+            {"name":"wallet","type":"address"}],
+          "Mail":[
+            {"name":"from","type":"Person"},
+            {"name":"to","type":"Person[]"},
+            {"name":"contents","type":"string"}]},
+          "primaryType":"Mail",
+          "domain":{
+            "name":"Ether Mail",
+            "version":"1",
+            "chainId":1,
+            "verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},
+          "message":{
+            "from":{"name":"Cow","wallet":"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},
+            "to": [
+              {"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},
+              {"name":"Alice","wallet":"0xaAaAAAAaaAAAaaaAaaAaaaaAAaAaaaaAaAaaAAaA"},
+            ],
+            "contents":"Hello, Bob & Alice!"
+          }
+        }
+      console.log("input:", input)
       const {
         domain,
         types,
         primaryType,
         message,
-      } = sigUtil.TypedDataUtils.sanitizeData(input)
+      } = this.createTypedDataObject(input)
+      console.log("domain:", JSON.stringify(domain))
+      console.log("types:", JSON.stringify(types))
+      console.log("message:", JSON.stringify(message))
       // const messageHex = Buffer.from(message).toString('hex')
       const domainSeparatorHex = sigUtil.TypedDataUtils.hashStruct('EIP712Domain', domain, types, true).toString('hex')
+      console.log("domainSeparatorHex:", JSON.stringify(domainSeparatorHex))
       const hashStructMessageHex = sigUtil.TypedDataUtils.hashStruct(primaryType, message, types, true).toString('hex')
+      console.log("hashStructMessageHex:", JSON.stringify(hashStructMessageHex))
+      const eth: Eth = this.app
       const data = await eth.signEIP712HashedMessage(path,
           domainSeparatorHex, hashStructMessageHex)
-      console.log("signEip712Message:", domainSeparatorHex, hashStructMessageHex, data)
+      console.log("data:", JSON.stringify(data))
       const signature = this.createMessageSignature(data)
+      console.log("signature:", JSON.stringify(signature))
       if (!signature) {
         return { success: false, error: getLocale('braveWalletLedgerValidationError') }
       }
       return { success: true, payload: signature }
     } catch (e) {
+      console.log("signEip712Message:", e)
       return { success: false, error: e.message, code: e.statusCode || e.id || e.name }
     }
   }
-/*
-  private createTypedDataObject = (message: string): {
-    if (!message)
-      return
-    const data = JSON.stringify(message)
+
+  private createTypedDataObject = (message: any): Eip712Structure => {
+    /*const data = JSON.stringify(message)
     const EIP712_SCHEMA = {
       type: 'object',
       properties: {
@@ -166,9 +201,10 @@ export default class LedgerBridgeKeyring extends LedgerEthereumKeyring {
       if (data[key]) {
         sanitizedData[key] = data[key];
       }
-    }
+    }*/
+    return sigUtil.TypedDataUtils.sanitizeData(message)
   }
-  */
+
   signPersonalMessage = async (path: string, message: string): Promise<SignHardwareMessageOperationResult> => {
     try {
       const unlocked = await this.unlock()

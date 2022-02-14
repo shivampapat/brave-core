@@ -393,6 +393,11 @@ bool ParseEthSignTypedDataParams(const std::string& json,
     return false;
   *message_to_sign_out = *message_to_sign;
 
+  auto domainSeparator =
+      helper->GetTypedDataMessageToSign("EIP712Domain", *types, *domain);
+  if (!domainSeparator)
+    return false;
+  DLOG(INFO) << "domainSeparatorHex:" << base::HexEncode(*domainSeparator);
   *domain_out = domain->Clone();
 
   return true;
