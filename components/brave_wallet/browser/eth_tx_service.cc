@@ -427,7 +427,8 @@ void EthTxService::ProcessHardwareSignature(
       tx_state_manager_->GetTx(tx_meta_id);
   if (!meta) {
     VLOG(1) << __FUNCTION__ << "No transaction found with id" << tx_meta_id;
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kResourceNotFound,
+                            "Transaction not found");
     return;
   }
   if (!meta->tx->ProcessVRS(v, r, s)) {
@@ -436,12 +437,14 @@ void EthTxService::ProcessHardwareSignature(
             << tx_meta_id;
     meta->status = mojom::TransactionStatus::Error;
     tx_state_manager_->AddOrUpdateTx(*meta);
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kInternalError,
+                            "Could not process hardware signature v,r,s");
     return;
   }
   meta->status = mojom::TransactionStatus::Approved;
   tx_state_manager_->AddOrUpdateTx(*meta);
   auto data = meta->tx->GetSignedTransaction();
+
   PublishTransaction(tx_meta_id, data, std::move(callback));
 }
 
@@ -451,14 +454,16 @@ void EthTxService::ApproveTransaction(const std::string& tx_meta_id,
       tx_state_manager_->GetTx(tx_meta_id);
   if (!meta) {
     LOG(ERROR) << "No transaction found";
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kResourceNotFound,
+                            "Transaction not found");
     return;
   }
 
   uint256_t chain_id = 0;
   if (!HexValueToUint256(json_rpc_service_->GetChainId(), &chain_id)) {
     LOG(ERROR) << "Could not convert chain ID";
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kInternalError,
+                            "Invalid chain ID response from RPC service");
     return;
   }
 
@@ -498,7 +503,8 @@ void EthTxService::OnGetNextNonce(
     meta->status = mojom::TransactionStatus::Error;
     tx_state_manager_->AddOrUpdateTx(*meta);
     LOG(ERROR) << "GetNextNonce failed";
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kInternalError,
+                            "Failed to get next nonce value");
     return;
   }
   meta->tx->set_nonce(nonce);
@@ -509,7 +515,8 @@ void EthTxService::OnGetNextNonce(
   tx_state_manager_->AddOrUpdateTx(*meta);
   if (!meta->tx->IsSigned()) {
     LOG(ERROR) << "Transaction must be signed first";
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kInternalError,
+                            "Failed to sign transaction");
     return;
   }
   PublishTransaction(meta->id, meta->tx->GetSignedTransaction(),
@@ -534,7 +541,8 @@ void EthTxService::OnPublishTransaction(std::string tx_meta_id,
       tx_state_manager_->GetTx(tx_meta_id);
   if (!meta) {
     DCHECK(false) << "Transaction should be found";
-    std::move(callback).Run(false);
+    std::move(callback).Run(false, mojom::ProviderError::kResourceNotFound,
+                            "Transaction not found");
     return;
   }
 
@@ -551,7 +559,13 @@ void EthTxService::OnPublishTransaction(std::string tx_meta_id,
   if (error == mojom::ProviderError::kSuccess) {
     UpdatePendingTransactions();
   }
-  std::move(callback).Run(true);
+
+  if (!error_message.empty()) {
+    LOG(ERROR) << "Transaction should be published";
+  }
+
+  std::move(callback).Run(error_message.empty(),
+                          mojom::ProviderError::kInternalError, error_message);
 }
 
 void EthTxService::MakeERC20TransferData(

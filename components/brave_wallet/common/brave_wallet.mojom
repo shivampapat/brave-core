@@ -723,7 +723,7 @@ interface EthTxService {
   AddUnapproved1559Transaction(TxData1559 tx_data, string from) => (bool success, string tx_meta_id, string error_message);
 
   // Used to approve a transaction
-  ApproveTransaction(string tx_meta_id) => (bool status);
+  ApproveTransaction(string tx_meta_id) => (bool status, ProviderError error, string error_message);
 
   // Used to reject a transaction
   RejectTransaction(string tx_meta_id) => (bool status);
@@ -753,7 +753,7 @@ interface EthTxService {
   RetryTransaction(string tx_meta_id) => (bool success, string tx_meta_id, string error_message);
   GetNonceForHardwareTransaction(string tx_meta_id) => (string? nonce);
   GetTransactionMessageToSign(string tx_meta_id) => (string? message);
-  ProcessHardwareSignature(string tx_meta_id, string v, string r, string s) => (bool status);
+  ProcessHardwareSignature(string tx_meta_id, string v, string r, string s) => (bool status, ProviderError error, string error_message);
 
   // Gas estimation API via eth_feeHistory API
   GetGasEstimation1559() => (GasEstimation1559? estimation);

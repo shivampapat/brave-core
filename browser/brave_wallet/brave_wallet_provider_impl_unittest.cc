@@ -516,12 +516,18 @@ class BraveWalletProviderImplUnitTest : public testing::Test {
     return transaction_infos;
   }
 
-  bool ApproveTransaction(const std::string& tx_meta_id) {
+  bool ApproveTransaction(const std::string& tx_meta_id,
+                          mojom::ProviderError* error_out,
+                          std::string* error_message_out) {
     bool success;
     base::RunLoop run_loop;
     eth_tx_service()->ApproveTransaction(
-        tx_meta_id, base::BindLambdaForTesting([&](bool v) {
+        tx_meta_id,
+        base::BindLambdaForTesting([&](bool v, mojom::ProviderError error,
+                                       const std::string& error_message) {
           success = v;
+          *error_out = error;
+          *error_message_out = error_message;
           run_loop.Quit();
         }));
     run_loop.Run();
@@ -745,8 +751,13 @@ TEST_F(BraveWalletProviderImplUnitTest, AddAndApproveTransaction) {
   // eth_getTransactionCount and eth_sendRawTransaction
   SetInterceptor("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x0\"}");
 
-  EXPECT_TRUE(ApproveTransaction(infos[0]->id));
+  mojom::ProviderError error = mojom::ProviderError::kUnknown;
+  std::string error_message;
+
+  EXPECT_TRUE(ApproveTransaction(infos[0]->id, &error, &error_message));
   base::RunLoop().RunUntilIdle();
+
+  EXPECT_NE(error, mojom::ProviderError::kSuccess);
 
   EXPECT_TRUE(callback_called);
   infos = GetAllTransactionInfo();
@@ -837,8 +848,13 @@ TEST_F(BraveWalletProviderImplUnitTest, AddAndApprove1559Transaction) {
   // eth_getTransactionCount and eth_sendRawTransaction
   SetInterceptor("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x0\"}");
 
-  EXPECT_TRUE(ApproveTransaction(infos[0]->id));
+  mojom::ProviderError error = mojom::ProviderError::kUnknown;
+  std::string error_message;
+
+  EXPECT_TRUE(ApproveTransaction(infos[0]->id, &error, &error_message));
   base::RunLoop().RunUntilIdle();
+
+  EXPECT_NE(error, mojom::ProviderError::kSuccess);
 
   EXPECT_TRUE(callback_called);
   infos = GetAllTransactionInfo();

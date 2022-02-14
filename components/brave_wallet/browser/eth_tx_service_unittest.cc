@@ -903,7 +903,9 @@ TEST_F(EthTxServiceUnitTest, ProcessHardwareSignature) {
       tx_meta_id, "0x00",
       "0x93b9121e82df014428924df439ff044f89c205dd76a194f8b11f50d2eade744e",
       "0x7aa705c9144742836b7fbbd0745c57f67b60df7b8d1790fe59f91ed8d2bfc11d",
-      base::BindLambdaForTesting([&](bool success) {
+      base::BindLambdaForTesting([&](bool success,
+                                     mojom::ProviderError error_out,
+                                     const std::string& error_message_out) {
         EXPECT_TRUE(success);
         auto tx_meta = eth_tx_service_->GetTxForTesting(tx_meta_id);
         EXPECT_TRUE(tx_meta);
@@ -935,7 +937,9 @@ TEST_F(EthTxServiceUnitTest, ProcessHardwareSignatureFail) {
   callback_called = false;
   eth_tx_service_->ProcessHardwareSignature(
       tx_meta_id, "0x00", "9ff044f89c205dd76a194f8b11f50d2eade744e", "",
-      base::BindLambdaForTesting([&](bool success) {
+      base::BindLambdaForTesting([&](bool success,
+                                     mojom::ProviderError error_out,
+                                     const std::string& error_message_out) {
         EXPECT_FALSE(success);
         auto tx_meta = eth_tx_service_->GetTxForTesting(tx_meta_id);
         EXPECT_TRUE(tx_meta);
@@ -949,7 +953,9 @@ TEST_F(EthTxServiceUnitTest, ProcessHardwareSignatureFail) {
   callback_called = false;
   eth_tx_service_->ProcessHardwareSignature(
       "-1", "0x00", "9ff044f89c205dd76a194f8b11f50d2eade744e", "",
-      base::BindLambdaForTesting([&](bool success) {
+      base::BindLambdaForTesting([&](bool success,
+                                     mojom::ProviderError error_out,
+                                     const std::string& error_message_out) {
         EXPECT_FALSE(success);
         callback_called = true;
       }));

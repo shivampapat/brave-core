@@ -415,7 +415,11 @@ handler.on(WalletActions.approveERC20Allowance.getType(), async (store: Store, p
 
 handler.on(WalletActions.approveTransaction.getType(), async (store: Store, txInfo: BraveWallet.TransactionInfo) => {
   const apiProxy = getAPIProxy()
-  await apiProxy.ethTxService.approveTransaction(txInfo.id)
+  const result = await apiProxy.ethTxService.approveTransaction(txInfo.id)
+  if (result.error !== BraveWallet.ProviderError.kSuccess) {
+    console.log(`Failed to approve transaction: ${result.errorMessage}`)
+  }
+
   await store.dispatch(refreshTransactionHistory(txInfo.fromAddress))
 })
 
