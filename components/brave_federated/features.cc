@@ -12,6 +12,7 @@ namespace features {
 
 namespace {
 
+// TODO(Moritz Haller): make ticket: rename to "BraveFederated"
 const char kFeatureName[] = "BraveFederatedLearning";
 
 const char kFieldTrialParameterOperationalPatternsEnabled[] =

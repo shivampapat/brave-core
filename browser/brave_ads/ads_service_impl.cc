@@ -55,6 +55,8 @@
 #include "brave/components/brave_ads/common/features.h"
 #include "brave/components/brave_ads/common/pref_names.h"
 #include "brave/components/brave_ads/common/switches.h"
+#include "brave/components/brave_federated/data_stores/ad_notification_timing_data_store.h"
+#include "brave/components/brave_federated/features.h"
 #include "brave/components/brave_rewards/browser/rewards_notification_service.h"
 #include "brave/components/brave_rewards/browser/rewards_p3a.h"
 #include "brave/components/brave_rewards/browser/rewards_service.h"
@@ -218,7 +220,9 @@ AdsServiceImpl::AdsServiceImpl(
         adaptive_captcha_service,
     std::unique_ptr<AdsTooltipsDelegate> ads_tooltips_delegate,
 #endif
-    history::HistoryService* history_service)
+    history::HistoryService* history_service,
+    base::SequenceBound<brave_federated::AdNotificationTimingDataStore>*
+        ad_notification_timing_data_store)
     : profile_(profile),
       history_service_(history_service),
 #if BUILDFLAG(BRAVE_ADAPTIVE_CAPTCHA_ENABLED)
@@ -234,6 +238,7 @@ AdsServiceImpl::AdsServiceImpl(
       display_service_(NotificationDisplayService::GetForProfile(profile_)),
       rewards_service_(
           brave_rewards::RewardsServiceFactory::GetForProfile(profile_)),
+      ad_notification_timing_data_store_(ad_notification_timing_data_store),
       bat_ads_client_receiver_(new bat_ads::AdsClientMojoBridge(this)) {
   DCHECK(profile_);
 #if BUILDFLAG(BRAVE_ADAPTIVE_CAPTCHA_ENABLED)
@@ -2095,6 +2100,93 @@ void AdsServiceImpl::RecordP2AEvent(const std::string& name,
       }
       break;
     }
+  }
+}
+
+void AdsServiceImpl::LogTrainingInstance(
+    const ads::mojom::TrainingInstancePtr instance) {
+  if (!ad_notification_timing_data_store_) {
+    return;
+  }
+
+  // TODO(Moritz Haller): add dev concern ticket to refactor federated DB to
+  // store generic types
+  brave_federated::AdNotificationTimingTaskLog log;
+
+  for (const auto& covariate : instance->covariates) {
+    switch (covariate->covariate_type) {
+      case ads::mojom::CovariateType::kAdNotificationClicked: {
+        if (covariate->data_type != ads::mojom::DataType::kBool) {
+          VLOG(0) << "covariate type not of type bool";
+          break;
+        }
+
+        bool value_as_bool = false;
+        if (covariate->value == "true") {
+          value_as_bool = true;
+        } else if (covariate->value != "false") {
+          VLOG(0) << "Failed to convert covariate value to bool";
+          return;
+        }
+
+        log.label = value_as_bool;
+        break;
+      }
+
+      case ads::mojom::CovariateType::kLocaleCountryAtTimeOfServing: {
+        if (covariate->data_type != ads::mojom::DataType::kString) {
+          VLOG(0) << "covariate type not of type string";
+          break;
+        }
+
+        log.locale = covariate->value;
+        break;
+      }
+
+      case ads::mojom::CovariateType::kImpressionServedAt: {
+        if (covariate->data_type != ads::mojom::DataType::kDouble) {
+          VLOG(0) << "covariate type not of type double";
+          break;
+        }
+
+        double value_as_double = 0.0;
+        if (!base::StringToDouble(covariate->value, &value_as_double)) {
+          VLOG(0) << "Failed to convert covariate value to double";
+          return;
+        }
+
+        log.time = base::Time::FromDoubleT(value_as_double);
+        break;
+      }
+
+      case ads::mojom::CovariateType::kNumberOfTabsOpenedInPast30Minutes: {
+        if (covariate->data_type != ads::mojom::DataType::kInt64) {
+          VLOG(0) << "covariate type not of type int64";
+          break;
+        }
+
+        int64_t value_as_int64 = 0;
+        if (!base::StringToInt64(covariate->value, &value_as_int64)) {
+          VLOG(0) << "Failed to convert covariate value to int64";
+          return;
+        }
+
+        log.number_of_tabs = value_as_int64;
+        break;
+      }
+    }
+  }
+
+  ad_notification_timing_data_store_
+      ->AsyncCall(&brave_federated::AdNotificationTimingDataStore::AddLog)
+      .WithArgs(log)
+      .Then(base::BindOnce(&AdsServiceImpl::OnLogTrainingInstance,
+                           base::Unretained(this)));
+}
+
+void AdsServiceImpl::OnLogTrainingInstance(bool success) {
+  if (!success) {
+    VLOG(1) << "Failed to log training instance";
   }
 }
 

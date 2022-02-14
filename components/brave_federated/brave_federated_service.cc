@@ -63,6 +63,11 @@ void BraveFederatedService::Start() {
   }
 }
 
+DataStoreService* BraveFederatedService::GetDataStoreService() {
+  DCHECK(data_store_service_);
+  return data_store_service_.get();
+}
+
 bool BraveFederatedService::ShouldStartOperationalPatterns() {
   return IsP3AEnabled() && IsOperationalPatternsEnabled();
 }
