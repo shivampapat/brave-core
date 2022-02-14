@@ -6,7 +6,7 @@
 import { assert } from 'chrome://resources/js/assert.m.js'
 import TransportWebHID from '@ledgerhq/hw-transport-webhid'
 import Eth from '@ledgerhq/hw-app-eth'
-
+const sigUtil = require('eth-sig-util')
 import { BraveWallet } from '../../../constants/types'
 import { getLocale } from '../../../../common/locale'
 import { hardwareDeviceIdFromAddress } from '../hardwareDeviceIdFromAddress'
@@ -102,16 +102,25 @@ export default class LedgerBridgeKeyring extends LedgerEthereumKeyring {
       return { success: false, error: e.message, code: e.statusCode || e.id || e.name }
     }
   }
-  signEip712Message = async (path: string, message: string): Promise<SignHardwareMessageOperationResult> => {
+  signEip712Message = async (path: string, input: string): Promise<SignHardwareMessageOperationResult> => {
     try {
       const unlocked = await this.unlock()
       if (!unlocked.success || !this.app) {
         return unlocked
       }
       const eth: Eth = this.app
-      console.log(message)
-      const messageHex = Buffer.from(message).toString('hex')
-      const data = await eth.signEIP712HashedMessage(path, Buffer.from("domain").toString("hex"), messageHex)
+      const {
+        domain,
+        types,
+        primaryType,
+        message,
+      } = sigUtil.TypedDataUtils.sanitizeData(input)
+      // const messageHex = Buffer.from(message).toString('hex')
+      const domainSeparatorHex = sigUtil.TypedDataUtils.hashStruct('EIP712Domain', domain, types, true).toString('hex')
+      const hashStructMessageHex = sigUtil.TypedDataUtils.hashStruct(primaryType, message, types, true).toString('hex')
+      const data = await eth.signEIP712HashedMessage(path,
+          domainSeparatorHex, hashStructMessageHex)
+      console.log("signEip712Message:", domainSeparatorHex, hashStructMessageHex, data)
       const signature = this.createMessageSignature(data)
       if (!signature) {
         return { success: false, error: getLocale('braveWalletLedgerValidationError') }
@@ -121,6 +130,45 @@ export default class LedgerBridgeKeyring extends LedgerEthereumKeyring {
       return { success: false, error: e.message, code: e.statusCode || e.id || e.name }
     }
   }
+/*
+  private createTypedDataObject = (message: string): {
+    if (!message)
+      return
+    const data = JSON.stringify(message)
+    const EIP712_SCHEMA = {
+      type: 'object',
+      properties: {
+        types: {
+          type: 'object',
+          properties: {
+            EIP712Domain: {type: 'array'},
+          },
+          additionalProperties: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: {type: 'string'},
+                type: {type: 'string'}
+              },
+              required: ['name', 'type']
+            }
+          },
+          required: ['EIP712Domain']
+        },
+        primaryType: {type: 'string'},
+        domain: {type: 'object'},
+        message: {type: 'object'}
+      },
+      required: ['types', 'primaryType', 'domain', 'message']
+    }
+    for (const key in EIP712_SCHEMA.properties) {
+      if (data[key]) {
+        sanitizedData[key] = data[key];
+      }
+    }
+  }
+  */
   signPersonalMessage = async (path: string, message: string): Promise<SignHardwareMessageOperationResult> => {
     try {
       const unlocked = await this.unlock()
