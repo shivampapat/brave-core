@@ -102,15 +102,16 @@ export default class LedgerBridgeKeyring extends LedgerEthereumKeyring {
       return { success: false, error: e.message, code: e.statusCode || e.id || e.name }
     }
   }
-  signEip712Message = async (path: string, address: string, message: string): Promise<SignHardwareMessageOperationResult> => {
+  signEip712Message = async (path: string, message: string): Promise<SignHardwareMessageOperationResult> => {
     try {
       const unlocked = await this.unlock()
       if (!unlocked.success || !this.app) {
         return unlocked
       }
       const eth: Eth = this.app
+      console.log(message)
       const messageHex = Buffer.from(message).toString('hex')
-      const data = await eth.signEIP712HashedMessage(path, messageHex)
+      const data = await eth.signEIP712HashedMessage(path, Buffer.from("domain").toString("hex"), messageHex)
       const signature = this.createMessageSignature(data)
       if (!signature) {
         return { success: false, error: getLocale('braveWalletLedgerValidationError') }
